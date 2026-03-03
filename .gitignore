@@ -1,0 +1,28 @@
+# Build output
+bin/
+obj/
+
+# Local tooling/cache
+.vs/
+*.user
+*.suo
+*.userprefs
+
+# NuGet/package artifacts
+packages/
+*.nupkg
+
+# Game/local dependency dump (too large for GitHub)
+Dependencies/
+
+# Embedded Unity export cache (causes long-path + huge add noise)
+Resources/GorrilaGUI/
+Resources/GorrilaGUI/Library/
+Resources/GorrilaGUI/Temp/
+Resources/GorrilaGUI/Logs/
+Resources/GorrilaGUI/Obj/
+Resources/GorrilaGUI/UserSettings/
+
+# Optional editor files
+*.tmp
+*.log

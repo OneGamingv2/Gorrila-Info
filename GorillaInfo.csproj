@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net472</TargetFramework>
+    <AssemblyName>GorillaInfo</AssemblyName>
+    <RootNamespace>GorillaInfo</RootNamespace>
+    <OutputType>Library</OutputType>
+    <LangVersion>latest</LangVersion>
+    <Deterministic>true</Deterministic>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <NoWarn>$(NoWarn);NU1701;MSB3245;MSB3243</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="Resources\**\*.cs" />
+    <None Remove="Resources\close.wav" />
+    <None Remove="Resources\CreamyClick.wav" />
+    <None Remove="Resources\gorillainfo" />
+    <None Remove="Resources\open.wav" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Resources\close.wav" />
+    <EmbeddedResource Include="Resources\CreamyClick.wav" />
+    <EmbeddedResource Include="Resources\gorillainfo" />
+    <EmbeddedResource Include="Resources\open.wav" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="Dependencies\Managed\*.dll" Exclude="Dependencies\Managed\0Harmony.dll" />
+    <Reference Include="Dependencies\BepInExCore\*.dll" Exclude="Dependencies\BepInExCore\0Harmony.dll" />
+    <Reference Include="System.Speech" />
+  </ItemGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="copy /Y &quot;$(TargetPath)&quot; &quot;C:\Program Files (x86)\Steam\steamapps\common\Gorilla Tag\BepInEx\plugins\&quot;" />
+  </Target>
+
+</Project>
