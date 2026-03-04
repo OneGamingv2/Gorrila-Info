@@ -10,14 +10,15 @@ namespace GorillaInfo
         private const float PositionX = 0.315f;
         private const float PositionY = 0.055f;
         private const float PositionZ = -0.035f;
+        private static readonly Vector3 MoreInfoBottomPosition = new Vector3(0f, -0.28f, 0f);
         private const string VersionLabel = "v1.0.2 FREE";
         private static readonly Color PanelColor = new Color(0.10f, 0.10f, 0.12f);
         private static readonly Color RowColor = new Color(0.16f, 0.16f, 0.18f);
         private static readonly Color ButtonColor = new Color(0.22f, 0.22f, 0.26f);
         private static readonly Color SideButtonColor = new Color(0.18f, 0.18f, 0.22f);
-        private const float TextBoostMultiplier = 1.25f;
+        private const float TextBoostMultiplier = 1.45f;
         private const float TextBoostMin = 0.004f;
-        private const float TextBoostMax = 0.040f;
+        private const float TextBoostMax = 0.060f;
 
         public void loadmenu()
         {
@@ -61,6 +62,7 @@ namespace GorillaInfo
 
             ApplyVersionLabel(menuInstance.transform);
             BoostMenuTextReadability(menuInstance.transform);
+            RepositionMoreInfo(menuInstance.transform);
 
             GorillaInfoMain main = GorillaInfoMain.Instance;
             main.buttonClick = menuInstance.AddComponent<ButtonClick>();
@@ -271,7 +273,7 @@ namespace GorillaInfo
 
         private void CreateMoreInfo(Transform root)
         {
-            Transform panel = CreatePanel(root, "MoreInfo", new Vector3(0.58f, 0f, 0f), new Vector3(0.28f, 0.22f, 0.012f), new Color(0.12f, 0.12f, 0.14f));
+            Transform panel = CreatePanel(root, "MoreInfo", MoreInfoBottomPosition, new Vector3(0.28f, 0.22f, 0.012f), new Color(0.12f, 0.12f, 0.14f));
             CreateText(panel, "Name", "Unknown", new Vector3(0f, 0.07f, -0.01f), 0.026f, TextAnchor.MiddleCenter);
             CreateText(panel, "Speed", "Speed: 0.00 m/s", new Vector3(0f, 0.02f, -0.01f), 0.022f, TextAnchor.MiddleCenter);
 
@@ -280,6 +282,19 @@ namespace GorillaInfo
             object14.localScale = new Vector3(0.06f, 0.06f, 0.06f);
 
             panel.gameObject.SetActive(false);
+        }
+
+        private void RepositionMoreInfo(Transform root)
+        {
+            if (root == null)
+                return;
+
+            Transform moreInfo = FindDeepChild(root, "MoreInfo");
+            if (moreInfo == null)
+                return;
+
+            moreInfo.localPosition = MoreInfoBottomPosition;
+            moreInfo.localRotation = Quaternion.identity;
         }
 
         private Transform CreateContainer(Transform parent, string name, Vector3 localPosition)

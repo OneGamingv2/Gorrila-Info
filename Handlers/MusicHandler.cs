@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Text;
@@ -10,14 +11,26 @@ namespace GorillaInfo
     {
         public TextMesh txtSongTitle, txtSongArtist;
         private GameObject musicTab;
-        private float nextRefreshTime;
-        private const float RefreshIntervalSeconds = 1.2f;
+        private Camera _previewCamera;
+        private RenderTexture _previewTexture;
+        private Renderer _previewRenderer;
+        private float _nextMetadataRefreshTime;
+        private float _nextPreviewRefreshTime;
+        private const float MetadataRefreshIntervalSeconds = 0.35f;
+        private const float PreviewRefreshIntervalSeconds = 1f / 15f;
+        private const int PreviewWidth = 854;
+        private const int PreviewHeight = 480;
 
         private string currentTitle = "No media detected";
         private string currentArtist = "-";
         private string currentProvider = "None";
         private string currentState = "Idle";
         private string currentWindowTitle = "-";
+        private string _lastRenderedTitle;
+        private string _lastRenderedArtist;
+        private string _lastRenderedProvider;
+        private string _lastRenderedState;
+        private static readonly string[] CandidateProcessNames = { "Spotify", "chrome", "msedge", "firefox", "brave", "opera" };
 
         private const string SpotifyUrl = "https://open.spotify.com/";
         private const string YouTubeUrl = "https://www.youtube.com/";
@@ -54,22 +67,26 @@ namespace GorillaInfo
             Transform menu = GorillaInfoMain.Instance.menuLoader.menuInstance.transform;
             if (menu == null) return;
 
-            Transform musicTabTrans = menu.Find("MusicTab");
+            Transform musicTabTrans = FindDeepChild(menu, "MusicTab");
             if (musicTabTrans == null) return;
 
             musicTab = musicTabTrans.gameObject;
 
-            // Initialize text components based on hierarchy
-            Transform titleTrans = musicTabTrans.Find("SongTitle");
-            Transform artistTrans = musicTabTrans.Find("SongArtist");
+            Transform titleTrans = FindDeepChild(musicTabTrans, "SongTitle");
+            Transform artistTrans = FindDeepChild(musicTabTrans, "SongArtist");
 
             if (titleTrans != null)
                 txtSongTitle = titleTrans.GetComponent<TextMesh>();
             if (artistTrans != null)
                 txtSongArtist = artistTrans.GetComponent<TextMesh>();
 
+            NormalizeMusicHeader(musicTabTrans);
+            EnsureMusicTextSizing();
+            EnsurePreviewSurface(musicTabTrans);
+
             currentState = "Ready";
-            nextRefreshTime = 0f;
+            _nextMetadataRefreshTime = 0f;
+            _nextPreviewRefreshTime = 0f;
 
             UpdateDisplay();
         }
@@ -84,7 +101,7 @@ namespace GorillaInfo
         {
             SendKey(VirtualKeyCodes.PLAY_PAUSE);
             currentState = "Play/Pause sent";
-            nextRefreshTime = 0f;
+            _nextMetadataRefreshTime = 0f;
             UpdateMusicData();
         }
 
@@ -92,14 +109,14 @@ namespace GorillaInfo
         {
             SendKey(VirtualKeyCodes.NEXT_TRACK);
             currentState = "Next sent";
-            nextRefreshTime = Time.time + 0.2f;
+            _nextMetadataRefreshTime = Time.time + 0.2f;
         }
 
         public void PreviousTrack()
         {
             SendKey(VirtualKeyCodes.PREVIOUS_TRACK);
             currentState = "Previous sent";
-            nextRefreshTime = Time.time + 0.2f;
+            _nextMetadataRefreshTime = Time.time + 0.2f;
         }
 
         public void OpenSpotify()
@@ -131,18 +148,100 @@ namespace GorillaInfo
 
         public void RefreshNowPlaying()
         {
-            nextRefreshTime = 0f;
+            _nextMetadataRefreshTime = 0f;
+            _nextPreviewRefreshTime = 0f;
             UpdateMusicData();
         }
 
         public void UpdateMusicData()
         {
-            if (Time.time < nextRefreshTime)
+            if (musicTab == null || !musicTab.activeInHierarchy)
                 return;
 
-            nextRefreshTime = Time.time + RefreshIntervalSeconds;
-            UpdateFromForegroundWindow();
+            if (Time.time >= _nextMetadataRefreshTime)
+            {
+                _nextMetadataRefreshTime = Time.time + MetadataRefreshIntervalSeconds;
+                UpdateNowPlayingInfo();
+            }
+
+            if (Time.time >= _nextPreviewRefreshTime)
+            {
+                _nextPreviewRefreshTime = Time.time + PreviewRefreshIntervalSeconds;
+                UpdatePreviewFrame();
+            }
+
             UpdateDisplay();
+        }
+
+        private void UpdateNowPlayingInfo()
+        {
+            if (TryGetForegroundWindowTitle(out string title))
+            {
+                currentWindowTitle = title;
+                if (TryParseTrackFromWindowTitle(title, out string provider, out string parsedTitle, out string parsedArtist))
+                {
+                    currentProvider = provider;
+                    currentTitle = Limit(parsedTitle, 56);
+                    currentArtist = Limit(parsedArtist, 34);
+                    currentState = "Detected";
+                    return;
+                }
+            }
+
+            if (TryDetectFromKnownProcesses(out string fallbackProvider, out string fallbackTitle, out string fallbackArtist))
+            {
+                currentProvider = fallbackProvider;
+                currentTitle = Limit(fallbackTitle, 56);
+                currentArtist = Limit(fallbackArtist, 34);
+                currentState = "Detected (fallback)";
+                return;
+            }
+
+            currentProvider = "System";
+            currentState = "No media found";
+            currentTitle = "No active Spotify/YouTube track";
+            currentArtist = "-";
+        }
+
+        private bool TryDetectFromKnownProcesses(out string provider, out string title, out string artist)
+        {
+            provider = string.Empty;
+            title = string.Empty;
+            artist = string.Empty;
+
+            for (int i = 0; i < CandidateProcessNames.Length; i++)
+            {
+                Process[] processes;
+                try
+                {
+                    processes = Process.GetProcessesByName(CandidateProcessNames[i]);
+                }
+                catch
+                {
+                    continue;
+                }
+
+                for (int p = 0; p < processes.Length; p++)
+                {
+                    string windowTitle;
+                    try
+                    {
+                        windowTitle = processes[p].MainWindowTitle;
+                    }
+                    catch
+                    {
+                        continue;
+                    }
+
+                    if (string.IsNullOrWhiteSpace(windowTitle))
+                        continue;
+
+                    if (TryParseTrackFromWindowTitle(windowTitle, out provider, out title, out artist))
+                        return true;
+                }
+            }
+
+            return false;
         }
 
         private void OpenUrl(string url, string provider, string state)
@@ -156,7 +255,7 @@ namespace GorillaInfo
                 });
                 currentProvider = provider;
                 currentState = state;
-                nextRefreshTime = 0f;
+                _nextMetadataRefreshTime = 0f;
                 UpdateDisplay();
             }
             catch (Exception ex)
@@ -167,50 +266,44 @@ namespace GorillaInfo
             }
         }
 
-        private void UpdateFromForegroundWindow()
+        private bool TryParseTrackFromWindowTitle(string title, out string provider, out string parsedTitle, out string parsedArtist)
         {
-            if (!TryGetForegroundWindowTitle(out string title))
-            {
-                currentState = "No active window";
-                return;
-            }
+            provider = string.Empty;
+            parsedTitle = string.Empty;
+            parsedArtist = string.Empty;
 
-            currentWindowTitle = title;
+            if (string.IsNullOrWhiteSpace(title))
+                return false;
 
             if (title.IndexOf("YouTube", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                currentProvider = "YouTube";
-                currentState = "Detected";
-                ParseYouTubeTitle(title);
-                return;
+                provider = "YouTube";
+                ParseYouTubeTitle(title, out parsedTitle, out parsedArtist);
+                return true;
             }
 
             if (title.IndexOf("Spotify", StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                currentProvider = "Spotify";
-                currentState = "Detected";
-                ParseSpotifyTitle(title);
-                return;
+                provider = "Spotify";
+                ParseSpotifyTitle(title, out parsedTitle, out parsedArtist);
+                return true;
             }
 
-            currentProvider = "System";
-            currentState = "No Spotify/YouTube focus";
-            currentTitle = "Switch to Spotify/YouTube to view track";
-            currentArtist = "-";
+            return false;
         }
 
-        private void ParseYouTubeTitle(string title)
+        private void ParseYouTubeTitle(string title, out string parsedTitle, out string parsedArtist)
         {
             string cleaned = title;
             int youtubeMarker = cleaned.IndexOf(" - YouTube", StringComparison.OrdinalIgnoreCase);
             if (youtubeMarker >= 0)
                 cleaned = cleaned.Substring(0, youtubeMarker);
 
-            currentTitle = Limit(cleaned, 42);
-            currentArtist = "YouTube";
+            parsedTitle = cleaned;
+            parsedArtist = "YouTube";
         }
 
-        private void ParseSpotifyTitle(string title)
+        private void ParseSpotifyTitle(string title, out string parsedTitle, out string parsedArtist)
         {
             string cleaned = title;
             int spotifyMarker = cleaned.IndexOf(" - Spotify", StringComparison.OrdinalIgnoreCase);
@@ -220,14 +313,165 @@ namespace GorillaInfo
             string[] parts = cleaned.Split(new[] { " - " }, StringSplitOptions.None);
             if (parts.Length >= 2)
             {
-                currentTitle = Limit(parts[0].Trim(), 42);
-                currentArtist = Limit(parts[1].Trim(), 28);
+                parsedTitle = parts[0].Trim();
+                parsedArtist = parts[1].Trim();
             }
             else
             {
-                currentTitle = Limit(cleaned, 42);
-                currentArtist = "Spotify";
+                parsedTitle = cleaned;
+                parsedArtist = "Spotify";
             }
+        }
+
+        private void UpdatePreviewFrame()
+        {
+            if (_previewRenderer == null)
+                return;
+
+            Camera source = Camera.main;
+            if (source == null)
+            {
+                currentState = "No camera";
+                return;
+            }
+
+            EnsurePreviewResources();
+            if (_previewTexture == null || _previewCamera == null)
+                return;
+
+            _previewCamera.transform.position = source.transform.position;
+            _previewCamera.transform.rotation = source.transform.rotation;
+            _previewCamera.fieldOfView = source.fieldOfView;
+            _previewCamera.nearClipPlane = source.nearClipPlane;
+            _previewCamera.farClipPlane = source.farClipPlane;
+            _previewCamera.clearFlags = source.clearFlags;
+            _previewCamera.backgroundColor = source.backgroundColor;
+            _previewCamera.cullingMask = source.cullingMask;
+            _previewCamera.targetTexture = _previewTexture;
+            _previewCamera.Render();
+        }
+
+        private void EnsurePreviewSurface(Transform musicTabTrans)
+        {
+            if (musicTabTrans == null)
+                return;
+
+            Transform preview = FindDeepChild(musicTabTrans, "ScreenPreview");
+            if (preview == null)
+            {
+                GameObject previewObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
+                previewObj.name = "ScreenPreview";
+                previewObj.transform.SetParent(musicTabTrans, false);
+                previewObj.transform.localPosition = new Vector3(0.06f, 0.045f, -0.008f);
+                previewObj.transform.localRotation = Quaternion.identity;
+                previewObj.transform.localScale = new Vector3(0.26f, 0.15f, 1f);
+
+                Collider col = previewObj.GetComponent<Collider>();
+                if (col != null)
+                    UnityEngine.Object.Destroy(col);
+
+                preview = previewObj.transform;
+            }
+
+            _previewRenderer = preview.GetComponent<Renderer>();
+            EnsurePreviewResources();
+        }
+
+        private void EnsurePreviewResources()
+        {
+            if (_previewTexture == null)
+            {
+                _previewTexture = new RenderTexture(PreviewWidth, PreviewHeight, 16, RenderTextureFormat.ARGB32)
+                {
+                    antiAliasing = 1,
+                    useMipMap = false,
+                    autoGenerateMips = false,
+                    filterMode = FilterMode.Bilinear,
+                    wrapMode = TextureWrapMode.Clamp
+                };
+            }
+
+            if (_previewRenderer != null)
+            {
+                Shader shader = Shader.Find("Unlit/Texture") ?? Shader.Find("Standard");
+                if (_previewRenderer.material == null || _previewRenderer.material.shader != shader)
+                    _previewRenderer.material = new Material(shader);
+
+                _previewRenderer.material.mainTexture = _previewTexture;
+            }
+
+            if (_previewCamera == null)
+            {
+                GameObject cameraObj = new GameObject("GorillaInfoPreviewCamera");
+                cameraObj.hideFlags = HideFlags.HideAndDontSave;
+                _previewCamera = cameraObj.AddComponent<Camera>();
+                _previewCamera.enabled = false;
+            }
+        }
+
+        private void NormalizeMusicHeader(Transform musicTabTrans)
+        {
+            if (musicTabTrans == null)
+                return;
+
+            TextMesh[] texts = musicTabTrans.GetComponentsInChildren<TextMesh>(true);
+            if (texts == null || texts.Length == 0)
+                return;
+
+            TextMesh primary = null;
+            for (int i = 0; i < texts.Length; i++)
+            {
+                TextMesh tm = texts[i];
+                if (tm == null || string.IsNullOrWhiteSpace(tm.text))
+                    continue;
+
+                if (tm.text.Trim().Equals("MUSIC", StringComparison.OrdinalIgnoreCase))
+                {
+                    if (primary == null)
+                    {
+                        primary = tm;
+                    }
+                    else
+                    {
+                        tm.gameObject.SetActive(false);
+                    }
+                }
+            }
+        }
+
+        private void EnsureMusicTextSizing()
+        {
+            if (txtSongTitle != null)
+            {
+                txtSongTitle.characterSize = Mathf.Max(txtSongTitle.characterSize, 0.018f);
+                txtSongTitle.fontStyle = FontStyle.Bold;
+            }
+
+            if (txtSongArtist != null)
+            {
+                txtSongArtist.characterSize = Mathf.Max(txtSongArtist.characterSize, 0.015f);
+                txtSongArtist.fontStyle = FontStyle.Bold;
+                txtSongArtist.lineSpacing = 0.9f;
+            }
+        }
+
+        private Transform FindDeepChild(Transform parent, string name)
+        {
+            if (parent == null)
+                return null;
+
+            Transform direct = parent.Find(name);
+            if (direct != null)
+                return direct;
+
+            for (int i = 0; i < parent.childCount; i++)
+            {
+                Transform found = FindDeepChild(parent.GetChild(i), name);
+                if (found != null)
+                    return found;
+            }
+
+            return null;
         }
 
         private bool TryGetForegroundWindowTitle(out string title)
@@ -256,11 +500,24 @@ namespace GorillaInfo
 
         private void UpdateDisplay()
         {
+            if (_lastRenderedTitle == currentTitle &&
+                _lastRenderedArtist == currentArtist &&
+                _lastRenderedProvider == currentProvider &&
+                _lastRenderedState == currentState)
+            {
+                return;
+            }
+
             if (txtSongTitle != null)
                 txtSongTitle.text = currentTitle;
 
             if (txtSongArtist != null)
                 txtSongArtist.text = $"{currentArtist}\n{currentProvider} | {currentState}";
+
+            _lastRenderedTitle = currentTitle;
+            _lastRenderedArtist = currentArtist;
+            _lastRenderedProvider = currentProvider;
+            _lastRenderedState = currentState;
         }
     }
 }

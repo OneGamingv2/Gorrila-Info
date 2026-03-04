@@ -20,7 +20,7 @@ public class MainHandler
     private const string Dash = "-";
     private const string NoMods = "No mods detected";
     private const string FpsSuffix = " FPS";
-    private const string WorldScalePrefix = "World Scale: ";
+    private const string WorldScalePrefix = "WS/Arms: ";
     private static readonly WaitForSeconds ScanWarmupWait = new WaitForSeconds(0.3f);
     private static readonly WaitForSeconds ScanStartWait = new WaitForSeconds(0.5f);
     private static readonly WaitForSeconds ScanPerPlayerWait = new WaitForSeconds(0.2f);
@@ -84,8 +84,9 @@ public class MainHandler
         }
 
         float worldScale = WorldScaleResolver.GetWorldScale(rig) * 100f;
+        float armScale = ArmLengthResolver.GetArmLengthScale(rig) * 100f;
         if (misc.txtPing != null)
-            misc.txtPing.text = $"{WorldScalePrefix}{worldScale:F0}%";
+            misc.txtPing.text = $"{WorldScalePrefix}{worldScale:F0}% / {armScale:F0}%";
 
         if (targetChanged)
         {

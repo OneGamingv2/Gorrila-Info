@@ -72,12 +72,12 @@ namespace GorillaInfo
             buttonClick.uptadeball();
             gunLib.rearmgun();
             gunLib.gunray();
+            musicHandler?.UpdateMusicData();
 
             if (Time.time >= _nextMainPageUpdate)
             {
                 updMain.UpdateMainPage();
                 lobbyHandler?.UpdateLobby();
-                musicHandler?.UpdateMusicData();
                 button.checkbuttons();
                 _nextMainPageUpdate = Time.time + MainPageInterval;
             }

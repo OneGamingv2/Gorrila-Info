@@ -13,6 +13,8 @@ public class Utilities
     private const float SuspiciousSpeedThreshold = 7.5f;
     private const float SpeedBoostThreshold = 11f;
     private const float FlyVerticalVelocityThreshold = 6f;
+    private const float SteamLongArmsThreshold = 1.12f;
+    private const float SteamExtremeLongArmsThreshold = 1.35f;
     private static readonly string[] _signatureKeywords =
     {
         "NOCLIP MOD", "SPEED", "GHOST", "INVIS", "TAGALL", "AUTOTAG", "RIGGUN",
@@ -110,9 +112,20 @@ public class Utilities
 
     private void AddBehavioralSignals(VRRig rig)
     {
+        Platform platform = rig.GetPlatform();
+
         int fps = rig.GetFPS();
         if (fps > 0 && fps <= LowFpsThreshold)
             TryAddMod("LOW FPS");
+
+        float armScale = ArmLengthResolver.GetArmLengthScale(rig);
+        if (platform == Platform.Steam)
+        {
+            if (armScale >= SteamExtremeLongArmsThreshold)
+                TryAddMod("EXTREME LONG ARMS");
+            else if (armScale >= SteamLongArmsThreshold)
+                TryAddMod("LONG ARMS");
+        }
 
         Rigidbody rb = rig.GetComponent<Rigidbody>();
         if (rb == null)

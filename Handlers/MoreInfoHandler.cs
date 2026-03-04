@@ -167,7 +167,7 @@ public class MoreInfoHandler
         if (_speedText != null)
         {
             float speed = GetPlayerSpeed(target);
-            _speedText.text = $"Speed: {speed:F2} m/s\nPlatform: {ParsePlatform(target.GetPlatform())}\nPing: {GetPlayerPing(target)}ms\nWorld Scale: {WorldScaleResolver.GetWorldScale(target) * 100f:F0}%";
+            _speedText.text = $"Speed: {speed:F2} m/s\nPlatform: {ParsePlatform(target.GetPlatform())}\nPing: {GetPlayerPing(target)}ms\nWorld Scale: {WorldScaleResolver.GetWorldScale(target) * 100f:F0}%\nArm Length: {ArmLengthResolver.GetArmLengthScale(target) * 100f:F0}%";
         }
 
         if (_platformText != null)
@@ -177,7 +177,7 @@ public class MoreInfoHandler
             _pingText.text = $"Ping: {GetPlayerPing(target)}ms";
 
         if (_worldScaleText != null)
-            _worldScaleText.text = $"World Scale: {WorldScaleResolver.GetWorldScale(target) * 100f:F0}%";
+            _worldScaleText.text = $"World/Arms: {WorldScaleResolver.GetWorldScale(target) * 100f:F0}% / {ArmLengthResolver.GetArmLengthScale(target) * 100f:F0}%";
 
         UpdateModelMaterial(target);
     }
