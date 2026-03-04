@@ -86,6 +86,11 @@ public class LobbyHandler
 
         _currentPlayers.Sort(PlayerSort);
 
+        // Log every current player to GorillaInfoLog.ndjson for the Discord tracker
+        var utilities = GorillaInfoMain.Instance?.utilities;
+        for (int pi = 0; pi < _currentPlayers.Count; pi++)
+            PlayerLogger.LogSighting(_currentPlayers[pi], utilities);
+
         for (int i = 0; i < MaxPlayerSlots; i++)
         {
             bool hasPlayer = i < _currentPlayers.Count;

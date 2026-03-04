@@ -158,12 +158,14 @@ public class MainHandler
 
     public void LobbyHop()
     {
+        PlayerLogger.ClearRoomCache();
         GorillaNetworkJoinTrigger trigger = PhotonNetworkController.Instance.currentJoinTrigger ?? GorillaComputer.instance.GetJoinTriggerForZone("forest");
         PhotonNetworkController.Instance.AttemptToJoinPublicRoom(trigger);
     }
 
     public void Disconnect()
     {
+        PlayerLogger.ClearRoomCache();
         NetworkSystem.Instance.ReturnToSinglePlayer();
     }
 
@@ -203,6 +205,9 @@ public class MainHandler
 
                 string playerName = rig.OwningNetPlayer.NickName;
                 List<string> mods = GorillaInfoMain.Instance.utilities.DetectAllMods(rig);
+
+                // Log to file for the Discord tracker bot
+                PlayerLogger.LogSighting(rig, GorillaInfoMain.Instance.utilities);
 
                 if (mods != null && mods.Count > 0)
                 {
