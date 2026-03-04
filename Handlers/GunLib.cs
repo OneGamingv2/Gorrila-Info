@@ -38,7 +38,6 @@ public class GunLib
     private const float RigCacheRefreshInterval = 0.2f;
     private const float ModsRefreshInterval = 1.2f;
     private const float StatsRefreshInterval = 0.35f;
-    private const float AutoLockRefreshInterval = 0.12f;
     private const float NametagUpdateInterval = 0.04f;
 
     private readonly Dictionary<VRRig, NametagVisual> _nametags = new Dictionary<VRRig, NametagVisual>(24);
@@ -49,7 +48,6 @@ public class GunLib
     private readonly Dictionary<VRRig, string> _tagStatsCache = new Dictionary<VRRig, string>(24);
     private readonly Dictionary<VRRig, float> _tagStatsTimestamp = new Dictionary<VRRig, float>(24);
     private float _nextRigCacheRefreshTime;
-    private float _nextAutoLockRefreshTime;
     private float _nextNametagUpdateTime;
 
     private static readonly Color[] GunStyleColors = new Color[]
@@ -90,18 +88,6 @@ public class GunLib
         bool hitSomething = Physics.Raycast(start, dir, out hit, MaxDistance, mask);
         Vector3 end = hitSomething ? hit.point : start + dir * MaxDistance;
 
-        if (autoLockEnabled && Time.time >= _nextAutoLockRefreshTime)
-        {
-            _nextAutoLockRefreshTime = Time.time + AutoLockRefreshInterval;
-
-            VRRig autoTarget = FindClosestVRRigInDirection(start, dir);
-            if (IsRigValid(autoTarget) && autoTarget != lockedTarget)
-            {
-                lockedTarget = autoTarget;
-                GorillaInfoMain.Instance.updMain.UpdateMainPage();
-            }
-        }
-
         if (autoLockEnabled && IsRigValid(lockedTarget))
         {
             Vector3 targetPos = lockedTarget.transform.position + Vector3.up * 0.35f;
@@ -119,12 +105,10 @@ public class GunLib
         if (!hitSomething && !passThroughEnabled && !autoLockEnabled) return;
 
         VRRig hitRig = passThroughEnabled ? FindClosestVRRigInDirection(start, dir) : (hitSomething ? hit.collider.GetComponentInParent<VRRig>() : null);
-        if (hitRig == null && autoLockEnabled)
-            hitRig = FindClosestVRRigInDirection(start, dir);
 
         if (hitRig == null || hitRig == GorillaTagger.Instance.offlineVRRig) return;
 
-        if ((SimpleInputs.RightTrigger || autoLockEnabled) && lockedTarget != hitRig)
+        if (SimpleInputs.RightTrigger && lockedTarget != hitRig)
         {
             lockedTarget = hitRig;
             GorillaInfoMain.Instance.updMain.UpdateMainPage();

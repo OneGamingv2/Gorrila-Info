@@ -45,6 +45,8 @@ public class MainHandler
 
                 ClearCache();
             }
+
+            UpdateSelectedPlayerStatus(misc, info, NoPlayer);
             return;
         }
 
@@ -58,9 +60,6 @@ public class MainHandler
         {
             _cachedName = netPlayer.NickName;
             misc.txtName.text = _cachedName;
-
-            if (misc.txtSelectedPlayer != null)
-                misc.txtSelectedPlayer.text = $"Selected Player: {_cachedName}";
         }
         if (targetChanged)
         {
@@ -116,6 +115,18 @@ public class MainHandler
             List<string> mods = info.utilities.DetectAllMods(rig);
             misc.SetMods(mods);
         }
+
+        UpdateSelectedPlayerStatus(misc, info, _cachedName);
+    }
+
+    private void UpdateSelectedPlayerStatus(Misc misc, GorillaInfoMain info, string selectedName)
+    {
+        if (misc?.txtSelectedPlayer == null || info?.gunLib == null)
+            return;
+
+        string lockStatus = info.gunLib.autoLockEnabled ? "ON" : "OFF";
+        string name = string.IsNullOrEmpty(selectedName) ? "None" : selectedName;
+        misc.txtSelectedPlayer.text = $"Selected: {name} | LockOn: {lockStatus}";
     }
 
     private void ClearCache()

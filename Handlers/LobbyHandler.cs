@@ -175,6 +175,7 @@ public class LobbyHandler
             misc.txtSelectedPlayer.text = $"Selected Player: {GetRigName(selectedRig)}";
         }
 
+        GorillaInfoMain.Instance.updMain?.UpdateMainPage();
         misc.EnableMain();
     }
 

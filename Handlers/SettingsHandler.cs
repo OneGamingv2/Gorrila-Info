@@ -67,6 +67,8 @@ public class SettingsHandler
         GorillaInfoMain.Instance.gunLib.autoLockEnabled = _lockOnEnabled;
         if (_lockOnText != null)
             _lockOnText.text = _lockOnEnabled ? "LockOn: ON" : "LockOn: OFF";
+
+        GorillaInfoMain.Instance.updMain?.UpdateMainPage();
     }
 
     public void ToggleNametags()
