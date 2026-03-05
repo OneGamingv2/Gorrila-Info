@@ -219,13 +219,26 @@ namespace GorillaInfo
 
         private void CreateSettingsTab(Transform root)
         {
-            Transform tab = CreatePanel(root, "SettingsTab", new Vector3(0f, 0f, 0f), new Vector3(0.52f, 0.38f, 0.012f), PanelColor);
-            CreateText(tab, "SettingsHeader", "SETTINGS", new Vector3(0f, 0.17f, -0.01f), 0.022f, TextAnchor.MiddleCenter);
-            CreateButton(tab, "Notifications", "Notifications: ON", new Vector3(0f, 0.12f, 0f), new Vector3(0.35f, 0.05f, 0.012f), ButtonColor);
-            CreateButton(tab, "LockOn", "LockOn: OFF", new Vector3(0f, 0.05f, 0f), new Vector3(0.35f, 0.05f, 0.012f), ButtonColor);
-            CreateButton(tab, "Nametags", "Nametags: OFF", new Vector3(0f, -0.02f, 0f), new Vector3(0.35f, 0.05f, 0.012f), ButtonColor);
-            CreateButton(tab, "GunStyle", "GunStyle: Purple", new Vector3(0f, -0.09f, 0f), new Vector3(0.35f, 0.05f, 0.012f), ButtonColor);
-            CreateButton(tab, "PassThroughGun", "PassThrough: OFF", new Vector3(0f, -0.16f, 0f), new Vector3(0.35f, 0.05f, 0.012f), ButtonColor);
+            Transform tab = CreatePanel(root, "SettingsTab", new Vector3(0f, 0f, 0f), new Vector3(0.52f, 0.44f, 0.012f), PanelColor);
+            CreateText(tab, "SettingsHeader", "SETTINGS", new Vector3(0f, 0.20f, -0.01f), 0.022f, TextAnchor.MiddleCenter);
+
+            Vector3 leftSize = new Vector3(0.23f, 0.045f, 0.012f);
+            Vector3 rightSize = new Vector3(0.23f, 0.045f, 0.012f);
+
+            CreateButton(tab, "Notifications", "Notify: ON", new Vector3(-0.13f, 0.13f, 0f), leftSize, ButtonColor);
+            CreateButton(tab, "LockOn", "LockOn: OFF", new Vector3(0.13f, 0.13f, 0f), rightSize, ButtonColor);
+
+            CreateButton(tab, "Nametags", "Nametags: OFF", new Vector3(-0.13f, 0.07f, 0f), leftSize, ButtonColor);
+            CreateButton(tab, "PassThroughGun", "PassThrough: OFF", new Vector3(0.13f, 0.07f, 0f), rightSize, ButtonColor);
+
+            CreateButton(tab, "GunStyle", "GunStyle: Purple", new Vector3(-0.13f, 0.01f, 0f), leftSize, ButtonColor);
+            CreateButton(tab, "GunSize", "GunSize: Normal", new Vector3(0.13f, 0.01f, 0f), rightSize, ButtonColor);
+
+            CreateButton(tab, "LockPointer", "Pointer: ON", new Vector3(-0.13f, -0.05f, 0f), leftSize, ButtonColor);
+            CreateButton(tab, "TargetSphere", "TargetSphere: ON", new Vector3(0.13f, -0.05f, 0f), rightSize, ButtonColor);
+
+            CreateButton(tab, "GunRay", "GunRay: ON", new Vector3(-0.13f, -0.11f, 0f), leftSize, ButtonColor);
+            CreateButton(tab, "ResetSettings", "Reset Defaults", new Vector3(0.13f, -0.11f, 0f), rightSize, ButtonColor);
         }
 
         private void CreateActionsTab(Transform root)

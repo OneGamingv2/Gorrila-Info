@@ -33,11 +33,16 @@ public class Button
         var settingsPanel = GorillaInfoMain.Instance.menuLoader.settingsPanel;
         if (settingsPanel != null)
         {
-            if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "Notifications", "Notification"), GorillaInfoMain.Instance.notificationManager.ToggleNotifications, spherePos)) return;
+            if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "Notifications", "Notification"), GorillaInfoMain.Instance.settingsHandler.ToggleNotifications, spherePos)) return;
             if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "LockOn", "Lock On", "Lockon", "LockOnButton"), GorillaInfoMain.Instance.settingsHandler.ToggleLockOn, spherePos)) return;
             if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "Nametags", "NameTags", "Nametag"), GorillaInfoMain.Instance.settingsHandler.ToggleNametags, spherePos)) return;
             if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "GunStyle", "Gun Style"), GorillaInfoMain.Instance.settingsHandler.CycleGunStyle, spherePos)) return;
             if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "PassThroughGun", "PassThrough", "Pass Through"), GorillaInfoMain.Instance.settingsHandler.TogglePassThroughGun, spherePos)) return;
+            if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "GunSize", "Gun Size"), GorillaInfoMain.Instance.settingsHandler.CycleGunSize, spherePos)) return;
+            if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "LockPointer", "Pointer"), GorillaInfoMain.Instance.settingsHandler.ToggleLockPointer, spherePos)) return;
+            if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "TargetSphere", "Sphere"), GorillaInfoMain.Instance.settingsHandler.ToggleTargetSphere, spherePos)) return;
+            if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "GunRay", "Ray"), GorillaInfoMain.Instance.settingsHandler.ToggleGunRay, spherePos)) return;
+            if (TryPressButton(FindAnyDeepChild(settingsPanel.transform, "ResetSettings", "Reset"), GorillaInfoMain.Instance.settingsHandler.ResetDefaults, spherePos)) return;
         }
 
         var actionsPanel = GorillaInfoMain.Instance.menuLoader.actionsPanel;

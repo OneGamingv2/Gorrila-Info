@@ -24,6 +24,7 @@ public class GunLib
     public bool passThroughEnabled;
     public VRRig lockedTarget;
     public bool lockPointerEnabled = true;
+    public bool targetSphereEnabled = true;
 
     private bool _lastBPressed;
     private int _currentGunStyleIndex;
@@ -43,6 +44,15 @@ public class GunLib
     private const float LockVisualUpdateInterval = 1f / 30f;
     private const float LockPointerWidth = 0.0045f;
     private const float LockSphereScale = 0.52f;
+    private int _gunSizePresetIndex = 1;
+
+    private static readonly float[] GunSizeMultipliers = new float[]
+    {
+        0.8f,
+        1.0f,
+        1.25f,
+        1.5f
+    };
 
     private readonly Dictionary<VRRig, NametagVisual> _nametags = new Dictionary<VRRig, NametagVisual>(24);
     private readonly Dictionary<VRRig, string> _modsNametagCache = new Dictionary<VRRig, string>(24);
@@ -62,7 +72,13 @@ public class GunLib
         new Color(0.7f, 0.2f, 1f),
         new Color(1f, 0.2f, 0.2f),
         new Color(0.2f, 1f, 0.2f),
-        new Color(1f, 1f, 0.2f)
+        new Color(1f, 1f, 0.2f),
+        new Color(0.2f, 1f, 1f),
+        new Color(1f, 0.55f, 0.1f),
+        new Color(1f, 0.35f, 0.75f),
+        new Color(0.85f, 0.85f, 0.85f),
+        new Color(0.25f, 0.35f, 1f),
+        new Color(0.1f, 0.1f, 0.1f)
     };
 
     private static readonly Color NametagMainColor = new Color(1f, 1f, 1f, 1f);
@@ -166,17 +182,17 @@ public class GunLib
     private void makeGun()
     {
         gunRay = new GameObject("GunRay").AddComponent<LineRenderer>();
-        gunRay.startWidth = GunRayWidth;
-        gunRay.endWidth = GunRayWidth;
         gunRay.material = new Material(Shader.Find("Sprites/Default"));
+        gunRay.positionCount = 2;
 
         gunSphere = GameObject.CreatePrimitive(PrimitiveType.Sphere);
-        gunSphere.transform.localScale = Vector3.one * GunSphereScale;
         Object.Destroy(gunSphere.GetComponent<Collider>());
+        gunSphere.GetComponent<Renderer>().material = new Material(Shader.Find("Sprites/Default"));
 
-        gunRay.material.color = GunStyleColors[0];
-        gunSphere.GetComponent<Renderer>().material = gunRay.material;
         gunSphere.layer = LayerMask.NameToLayer("Ignore Raycast");
+
+        ApplyGunSize();
+        ApplyGunVisualStyle();
     }
 
     public void destroy()
@@ -212,12 +228,90 @@ public class GunLib
         if (styleIndex < 0 || styleIndex >= GunStyleColors.Length) return;
 
         _currentGunStyleIndex = styleIndex;
+        ApplyGunVisualStyle();
+    }
+
+    public int GetGunStyleCount()
+    {
+        return GunStyleColors.Length;
+    }
+
+    public void SetGunRayEnabled(bool enabled)
+    {
+        gunRayEnabled = enabled;
+        if (!enabled)
+            destroy();
+    }
+
+    public void SetTargetSphereEnabled(bool enabled)
+    {
+        targetSphereEnabled = enabled;
+        if (!enabled && _lockSphere != null)
+            _lockSphere.SetActive(false);
+    }
+
+    public int GetGunSizePresetIndex()
+    {
+        return _gunSizePresetIndex;
+    }
+
+    public void SetGunSizePreset(int presetIndex)
+    {
+        if (presetIndex < 0)
+            presetIndex = 0;
+        if (presetIndex >= GunSizeMultipliers.Length)
+            presetIndex = GunSizeMultipliers.Length - 1;
+
+        _gunSizePresetIndex = presetIndex;
+        ApplyGunSize();
+    }
+
+    public int GetGunSizePresetCount()
+    {
+        return GunSizeMultipliers.Length;
+    }
+
+    private void ApplyGunSize()
+    {
+        float mult = GunSizeMultipliers[_gunSizePresetIndex];
 
         if (gunRay != null)
         {
-            gunRay.material.color = GunStyleColors[styleIndex];
-            if (gunSphere != null)
-                gunSphere.GetComponent<Renderer>().material.color = GunStyleColors[styleIndex];
+            float width = GunRayWidth * mult;
+            gunRay.startWidth = width;
+            gunRay.endWidth = width;
+        }
+
+        if (gunSphere != null)
+            gunSphere.transform.localScale = Vector3.one * GunSphereScale * mult;
+    }
+
+    private void ApplyGunVisualStyle()
+    {
+        Color styleColor = GunStyleColors[_currentGunStyleIndex];
+
+        if (gunRay != null && gunRay.material != null)
+            gunRay.material.color = styleColor;
+
+        if (gunSphere != null)
+        {
+            Renderer gunRenderer = gunSphere.GetComponent<Renderer>();
+            if (gunRenderer != null && gunRenderer.material != null)
+                gunRenderer.material.color = styleColor;
+        }
+
+        if (_lockPointer != null && _lockPointer.material != null)
+            _lockPointer.material.color = styleColor;
+
+        if (_lockSphere != null)
+        {
+            Renderer lockRenderer = _lockSphere.GetComponent<Renderer>();
+            if (lockRenderer != null && lockRenderer.material != null)
+            {
+                Color lockColor = styleColor;
+                lockColor.a = 0.25f;
+                lockRenderer.material.color = lockColor;
+            }
         }
     }
 
@@ -461,7 +555,6 @@ public class GunLib
             _lockPointer.startWidth = LockPointerWidth;
             _lockPointer.endWidth = LockPointerWidth;
             _lockPointer.material = new Material(Shader.Find("Sprites/Default"));
-            _lockPointer.material.color = new Color(0.2f, 1f, 1f, 1f);
             _lockPointer.positionCount = 2;
             _lockPointer.enabled = false;
         }
@@ -479,11 +572,12 @@ public class GunLib
             if (renderer != null)
             {
                 renderer.material = new Material(Shader.Find("Sprites/Default"));
-                renderer.material.color = new Color(0.2f, 1f, 1f, 0.25f);
             }
             _lockSphere.layer = LayerMask.NameToLayer("Ignore Raycast");
             _lockSphere.SetActive(false);
         }
+
+        ApplyGunVisualStyle();
     }
 
     private void UpdateLockVisuals(Vector3 start)
@@ -505,10 +599,14 @@ public class GunLib
 
         if (_lockSphere != null)
         {
-            _lockSphere.SetActive(true);
-            _lockSphere.transform.position = targetPosition;
-            float pulse = 1f + Mathf.Sin(Time.time * 5.5f) * 0.07f;
-            _lockSphere.transform.localScale = Vector3.one * LockSphereScale * pulse;
+            bool showSphere = targetSphereEnabled;
+            _lockSphere.SetActive(showSphere);
+            if (showSphere)
+            {
+                _lockSphere.transform.position = targetPosition;
+                float pulse = 1f + Mathf.Sin(Time.time * 5.5f) * 0.07f;
+                _lockSphere.transform.localScale = Vector3.one * LockSphereScale * pulse;
+            }
         }
 
         if (_lockPointer != null)
