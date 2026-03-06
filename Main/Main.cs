@@ -4,7 +4,7 @@ using GorillaInfo.LAB;
 
 namespace GorillaInfo
 {
-    [BepInPlugin("com.duv14.gorillatag.gorillainfo", "gorillainfo", "1.0.0")]
+    [BepInPlugin("com.LIPPS.gorillatag.gorillainfo", "gorillainfo", "1.0.2")]
     public class GorillaInfoMain : BaseUnityPlugin
     {
         public static GorillaInfoMain Instance;
