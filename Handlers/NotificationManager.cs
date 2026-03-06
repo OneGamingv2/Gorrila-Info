@@ -4,7 +4,7 @@ public class NotificationManager
 {
     public bool notificationsEnabled = true;
     private const float NotificationLifetime = 5f;
-    private const float NotificationScale = 0.015f;
+    private const float NotificationScale = 0.03f;
 
     public void ToggleNotifications()
     {
@@ -46,11 +46,15 @@ public class NotificationManager
 
         TextMesh text = notification.AddComponent<TextMesh>();
         text.text = message;
-        text.characterSize = 0.1f;
+        text.fontSize = 64;
+        text.fontStyle = FontStyle.Bold;
+        text.characterSize = 0.15f;
         text.anchor = TextAnchor.UpperLeft;
         text.alignment = TextAlignment.Left;
         text.color = Color.white;
         text.richText = true;
+        text.transform.localRotation = Quaternion.identity;
+        text.transform.localScale = Vector3.one;
 
         Object.Destroy(notification, NotificationLifetime);
     }

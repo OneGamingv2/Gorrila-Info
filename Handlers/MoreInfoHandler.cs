@@ -63,6 +63,9 @@ public class MoreInfoHandler
         if (_worldScaleText == null)
             _worldScaleText = CreateInfoText("WorldScale", new Vector3(0f, -0.08f, -0.01f));
 
+        NormalizeInfoFields();
+        DisableFpsArtifacts();
+
         Transform giModel = _moreInfoPanel.transform.Find("GIModel");
         if (giModel != null)
         {
@@ -77,6 +80,53 @@ public class MoreInfoHandler
         _moreInfoPanel.transform.localScale = Vector3.zero;
         _scaleVelocity = Vector3.zero;
         _isOpen = false;
+    }
+
+    private void NormalizeInfoFields()
+    {
+        ConfigureInfoField(_nameText, 0.015f);
+        ConfigureInfoField(_speedText, 0.0135f);
+        ConfigureInfoField(_platformText, 0.0135f);
+        ConfigureInfoField(_pingText, 0.0135f);
+        ConfigureInfoField(_worldScaleText, 0.0135f);
+    }
+
+    private void ConfigureInfoField(TextMesh text, float characterSize)
+    {
+        if (text == null)
+            return;
+
+        text.transform.localRotation = Quaternion.identity;
+        text.transform.localScale = Vector3.one;
+        text.characterSize = characterSize;
+        text.fontStyle = FontStyle.Bold;
+        text.anchor = TextAnchor.MiddleCenter;
+        text.alignment = TextAlignment.Center;
+    }
+
+    private void DisableFpsArtifacts()
+    {
+        if (_moreInfoPanel == null)
+            return;
+
+        TextMesh[] texts = _moreInfoPanel.GetComponentsInChildren<TextMesh>(true);
+        for (int i = 0; i < texts.Length; i++)
+        {
+            TextMesh tm = texts[i];
+            if (tm == null)
+                continue;
+
+            string name = tm.gameObject.name;
+            string content = tm.text ?? string.Empty;
+
+            bool isKnownInfoField = tm == _nameText || tm == _speedText || tm == _platformText || tm == _pingText || tm == _worldScaleText;
+            if (!isKnownInfoField &&
+                (name.IndexOf("fps", System.StringComparison.OrdinalIgnoreCase) >= 0 ||
+                 content.IndexOf("fps", System.StringComparison.OrdinalIgnoreCase) >= 0))
+            {
+                tm.gameObject.SetActive(false);
+            }
+        }
     }
 
     private void LoadMaterials()

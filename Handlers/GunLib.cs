@@ -148,15 +148,13 @@ public class GunLib
         {
             VRRig hitRig = hitSomething ? hit.collider.GetComponentInParent<VRRig>() : null;
 
-            if (!IsRigValid(hitRig) && passThroughEnabled)
+            if (!IsRigValid(hitRig))
                 hitRig = FindClosestVRRigInDirection(start, dir);
 
             if (IsRigValid(hitRig))
             {
-                Vector3 lockPos = hitRig.transform.position + Vector3.up * 0.35f;
-                if (Vector3.Distance(start, lockPos) <= MaxDistance && HasLineOfSight(start, lockPos, hitRig) && lockedTarget != hitRig)
+                if (TrySetLockedTarget(hitRig, true) && lockedTarget == hitRig)
                 {
-                    lockedTarget = hitRig;
                     GorillaInfoMain.Instance.updMain.UpdateMainPage();
                 }
             }
@@ -231,6 +229,28 @@ public class GunLib
         lockedTarget = null;
         gunSuppressedAfterInfoUpdate = false;
         HideLockVisuals();
+    }
+
+    public bool TrySetLockedTarget(VRRig target, bool requireLineOfSight)
+    {
+        if (!IsRigValid(target))
+            return false;
+
+        Vector3 origin = GetSelectionOrigin();
+        Vector3 lockPos = target.transform.position + Vector3.up * 0.35f;
+
+        if (Vector3.Distance(origin, lockPos) > MaxDistance)
+            return false;
+
+        if (requireLineOfSight && !HasLineOfSight(origin, lockPos, target))
+            return false;
+
+        if (lockedTarget == target)
+            return true;
+
+        lockedTarget = target;
+        gunSuppressedAfterInfoUpdate = false;
+        return true;
     }
 
     public void OnMenuClosed()
@@ -560,6 +580,19 @@ public class GunLib
     private bool IsRigValid(VRRig rig)
     {
         return rig != null && rig != GorillaTagger.Instance.offlineVRRig;
+    }
+
+    private Vector3 GetSelectionOrigin()
+    {
+        Transform hand = GorillaTagger.Instance?.rightHandTransform;
+        if (hand != null)
+            return hand.position;
+
+        Camera cam = Camera.main;
+        if (cam != null)
+            return cam.transform.position;
+
+        return Vector3.zero;
     }
 
     private bool HasLineOfSight(Vector3 from, Vector3 to, VRRig targetRig)

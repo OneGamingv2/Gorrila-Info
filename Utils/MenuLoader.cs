@@ -271,13 +271,17 @@ namespace GorillaInfo
         private void CreateMusicTab(Transform root)
         {
             Transform tab = CreatePanel(root, "MusicTab", new Vector3(0f, 0f, 0f), new Vector3(0.52f, 0.38f, 0.012f), PanelColor);
-            CreateText(tab, "MusicHeader", "MUSIC", new Vector3(0f, 0.17f, -0.01f), 0.022f, TextAnchor.MiddleCenter);
+            CreateText(tab, "MusicHeader", "Music", new Vector3(0f, 0.17f, -0.01f), 0.020f, TextAnchor.MiddleCenter);
             CreateText(tab, "SongTitle", "No media detected", new Vector3(-0.22f, 0.14f, -0.01f), 0.03f, TextAnchor.MiddleLeft);
             CreateText(tab, "SongArtist", "-", new Vector3(-0.22f, 0.09f, -0.01f), 0.024f, TextAnchor.MiddleLeft);
 
             CreateButton(tab, "Previous", "Prev", new Vector3(-0.17f, -0.12f, 0f), new Vector3(0.10f, 0.05f, 0.012f), ButtonColor);
             CreateButton(tab, "PauseButton", "Play/Pause", new Vector3(-0.03f, -0.12f, 0f), new Vector3(0.14f, 0.05f, 0.012f), ButtonColor);
             CreateButton(tab, "Next", "Next", new Vector3(0.13f, -0.12f, 0f), new Vector3(0.10f, 0.05f, 0.012f), ButtonColor);
+
+            CreateButton(tab, "VolDown", "Vol -", new Vector3(-0.17f, -0.18f, 0f), new Vector3(0.10f, 0.042f, 0.012f), ButtonColor);
+            CreateButton(tab, "Mute", "Mute", new Vector3(-0.03f, -0.18f, 0f), new Vector3(0.12f, 0.042f, 0.012f), ButtonColor);
+            CreateButton(tab, "VolUp", "Vol +", new Vector3(0.11f, -0.18f, 0f), new Vector3(0.10f, 0.042f, 0.012f), ButtonColor);
 
             CreateButton(tab, "SpotifyButton", "Spotify", new Vector3(-0.17f, -0.05f, 0f), new Vector3(0.10f, 0.045f, 0.012f), ButtonColor);
             CreateButton(tab, "YouTubeButton", "YouTube", new Vector3(-0.04f, -0.05f, 0f), new Vector3(0.10f, 0.045f, 0.012f), ButtonColor);

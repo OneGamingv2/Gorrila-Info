@@ -6,6 +6,7 @@ public class Button
 {
     private static readonly Dictionary<Transform, bool> _buttonTouchStates = new(16);
     private float _nextAllowedClickTime;
+    private float _interactionRadius = 0.008f;
     private const float ClickCooldown = 0.2f;
 
     public void checkbuttons()
@@ -22,6 +23,13 @@ public class Button
         if (sections == null) return;
 
         Vector3 spherePos = sphere.transform.position;
+        SphereCollider sphereCollider = sphere.GetComponent<SphereCollider>();
+        if (sphereCollider != null)
+        {
+            Vector3 lossy = sphere.transform.lossyScale;
+            float scaleMax = Mathf.Max(lossy.x, Mathf.Max(lossy.y, lossy.z));
+            _interactionRadius = Mathf.Max(0.004f, sphereCollider.radius * scaleMax);
+        }
 
         if (TryPressButton(FindAnyDeepChild(sections, "HomeButton", "Home"), GorillaInfoMain.Instance.misc.EnableMain, spherePos)) return;
         if (TryPressButton(FindAnyDeepChild(sections, "MiscButton", "Misc"), GorillaInfoMain.Instance.misc.EnableMisc, spherePos)) return;
@@ -65,9 +73,12 @@ public class Button
         {
             if (GorillaInfoMain.Instance.musicHandler != null)
             {
-                if (TryPressButton(FindDeepChild(musicPanel.transform, "Previous"), GorillaInfoMain.Instance.musicHandler.PreviousTrack, spherePos)) return;
-                if (TryPressButton(FindDeepChild(musicPanel.transform, "PauseButton"), GorillaInfoMain.Instance.musicHandler.PlayPauseMusic, spherePos)) return;
-                if (TryPressButton(FindDeepChild(musicPanel.transform, "Next"), GorillaInfoMain.Instance.musicHandler.NextTrack, spherePos)) return;
+                if (TryPressButton(FindAnyDeepChild(musicPanel.transform, "Previous", "Prev"), GorillaInfoMain.Instance.musicHandler.PreviousTrack, spherePos)) return;
+                if (TryPressButton(FindAnyDeepChild(musicPanel.transform, "PauseButton", "PlayPause", "Pause"), GorillaInfoMain.Instance.musicHandler.PlayPauseMusic, spherePos)) return;
+                if (TryPressButton(FindAnyDeepChild(musicPanel.transform, "Next", "NextButton"), GorillaInfoMain.Instance.musicHandler.NextTrack, spherePos)) return;
+                if (TryPressButton(FindAnyDeepChild(musicPanel.transform, "VolDown", "VolumeDown", "Vol -"), GorillaInfoMain.Instance.musicHandler.VolumeDown, spherePos)) return;
+                if (TryPressButton(FindAnyDeepChild(musicPanel.transform, "Mute", "VolumeMute"), GorillaInfoMain.Instance.musicHandler.ToggleMute, spherePos)) return;
+                if (TryPressButton(FindAnyDeepChild(musicPanel.transform, "VolUp", "VolumeUp", "Vol +"), GorillaInfoMain.Instance.musicHandler.VolumeUp, spherePos)) return;
                 if (TryPressButton(FindDeepChild(musicPanel.transform, "SpotifyButton"), GorillaInfoMain.Instance.musicHandler.OpenSpotify, spherePos)) return;
                 if (TryPressButton(FindDeepChild(musicPanel.transform, "Spotify"), GorillaInfoMain.Instance.musicHandler.OpenSpotify, spherePos)) return;
                 if (TryPressButton(FindDeepChild(musicPanel.transform, "YouTubeButton"), GorillaInfoMain.Instance.musicHandler.OpenYouTube, spherePos)) return;
@@ -161,7 +172,8 @@ public class Button
         if (!_buttonTouchStates.TryGetValue(btn, out bool wasTouching))
             wasTouching = false;
 
-        bool touching = col.bounds.Contains(spherePos);
+        Vector3 closest = col.ClosestPoint(spherePos);
+        bool touching = (spherePos - closest).sqrMagnitude <= (_interactionRadius * _interactionRadius);
 
         if (touching && !wasTouching)
         {

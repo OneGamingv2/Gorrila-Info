@@ -16,10 +16,12 @@ namespace GorillaInfo
         private Renderer _previewRenderer;
         private float _nextMetadataRefreshTime;
         private float _nextPreviewRefreshTime;
-        private const float MetadataRefreshIntervalSeconds = 0.35f;
-        private const float PreviewRefreshIntervalSeconds = 1f / 15f;
-        private const int PreviewWidth = 854;
-        private const int PreviewHeight = 480;
+        private float _nextProcessFallbackScanTime;
+        private const float MetadataRefreshIntervalSeconds = 0.8f;
+        private const float PreviewRefreshIntervalSeconds = 1f / 8f;
+        private const float ProcessFallbackScanIntervalSeconds = 2f;
+        private const int PreviewWidth = 480;
+        private const int PreviewHeight = 270;
 
         private string currentTitle = "No media detected";
         private string currentArtist = "-";
@@ -31,6 +33,10 @@ namespace GorillaInfo
         private string _lastRenderedProvider;
         private string _lastRenderedState;
         private static readonly string[] CandidateProcessNames = { "Spotify", "chrome", "msedge", "firefox", "brave", "opera" };
+        private static readonly string[] IgnoredWindowTitleFragments =
+        {
+            "connect", "settings", "discord", "steam", "gorilla tag", "visual studio", "file explorer"
+        };
 
         private const string SpotifyUrl = "https://open.spotify.com/";
         private const string YouTubeUrl = "https://www.youtube.com/";
@@ -40,6 +46,9 @@ namespace GorillaInfo
             NEXT_TRACK = 0xB0,
             PREVIOUS_TRACK = 0xB1,
             PLAY_PAUSE = 0xB3,
+            VOLUME_MUTE = 0xAD,
+            VOLUME_DOWN = 0xAE,
+            VOLUME_UP = 0xAF,
         }
 
         private const uint KeyEventKeyUp = 0x0002;
@@ -80,13 +89,14 @@ namespace GorillaInfo
             if (artistTrans != null)
                 txtSongArtist = artistTrans.GetComponent<TextMesh>();
 
-            NormalizeMusicHeader(musicTabTrans);
+            NormalizeMusicHeader(menu, musicTabTrans);
             EnsureMusicTextSizing();
             EnsurePreviewSurface(musicTabTrans);
 
             currentState = "Ready";
             _nextMetadataRefreshTime = 0f;
             _nextPreviewRefreshTime = 0f;
+            _nextProcessFallbackScanTime = 0f;
 
             UpdateDisplay();
         }
@@ -153,6 +163,27 @@ namespace GorillaInfo
             UpdateMusicData();
         }
 
+        public void VolumeUp()
+        {
+            SendKey(VirtualKeyCodes.VOLUME_UP);
+            currentState = "Volume +";
+            UpdateDisplay();
+        }
+
+        public void VolumeDown()
+        {
+            SendKey(VirtualKeyCodes.VOLUME_DOWN);
+            currentState = "Volume -";
+            UpdateDisplay();
+        }
+
+        public void ToggleMute()
+        {
+            SendKey(VirtualKeyCodes.VOLUME_MUTE);
+            currentState = "Mute toggled";
+            UpdateDisplay();
+        }
+
         public void UpdateMusicData()
         {
             if (musicTab == null || !musicTab.activeInHierarchy)
@@ -178,7 +209,7 @@ namespace GorillaInfo
             if (TryGetForegroundWindowTitle(out string title))
             {
                 currentWindowTitle = title;
-                if (TryParseTrackFromWindowTitle(title, out string provider, out string parsedTitle, out string parsedArtist))
+                if (!IsBadWindowTitle(title) && TryParseTrackFromWindowTitle(title, out string provider, out string parsedTitle, out string parsedArtist))
                 {
                     currentProvider = provider;
                     currentTitle = Limit(parsedTitle, 56);
@@ -188,14 +219,18 @@ namespace GorillaInfo
                 }
             }
 
-            if (TryDetectFromKnownProcesses(out string fallbackProvider, out string fallbackTitle, out string fallbackArtist))
+            if (Time.time >= _nextProcessFallbackScanTime && TryDetectFromKnownProcesses(out string fallbackProvider, out string fallbackTitle, out string fallbackArtist))
             {
+                _nextProcessFallbackScanTime = Time.time + ProcessFallbackScanIntervalSeconds;
                 currentProvider = fallbackProvider;
                 currentTitle = Limit(fallbackTitle, 56);
                 currentArtist = Limit(fallbackArtist, 34);
                 currentState = "Detected (fallback)";
                 return;
             }
+
+            if (Time.time >= _nextProcessFallbackScanTime)
+                _nextProcessFallbackScanTime = Time.time + ProcessFallbackScanIntervalSeconds;
 
             currentProvider = "System";
             currentState = "No media found";
@@ -234,6 +269,9 @@ namespace GorillaInfo
                     }
 
                     if (string.IsNullOrWhiteSpace(windowTitle))
+                        continue;
+
+                    if (IsBadWindowTitle(windowTitle))
                         continue;
 
                     if (TryParseTrackFromWindowTitle(windowTitle, out provider, out title, out artist))
@@ -439,6 +477,49 @@ namespace GorillaInfo
             }
         }
 
+        private void NormalizeMusicHeader(Transform menuRoot, Transform musicTabTrans)
+        {
+            if (musicTabTrans == null)
+                return;
+
+            TextMesh tabHeader = FindDeepChild(musicTabTrans, "MusicHeader")?.GetComponent<TextMesh>();
+            if (tabHeader != null)
+            {
+                tabHeader.text = string.Empty;
+                tabHeader.gameObject.SetActive(false);
+            }
+
+            if (menuRoot == null)
+                return;
+
+            TextMesh[] allTexts = menuRoot.GetComponentsInChildren<TextMesh>(true);
+            for (int i = 0; i < allTexts.Length; i++)
+            {
+                TextMesh tm = allTexts[i];
+                if (tm == null || string.IsNullOrWhiteSpace(tm.text))
+                    continue;
+
+                string trimmed = tm.text.Trim();
+                if (!trimmed.Equals("MUSIC", StringComparison.OrdinalIgnoreCase) &&
+                    !trimmed.Equals("Music", StringComparison.OrdinalIgnoreCase))
+                    continue;
+
+                Transform tr = tm.transform;
+                bool isInMusicTab = tr.IsChildOf(musicTabTrans);
+                bool isSidebarButton = FindAncestorByName(tr, "MusicButton") != null;
+                bool isSongInfo = tr == txtSongTitle?.transform || tr == txtSongArtist?.transform;
+
+                if (isInMusicTab && !isSongInfo)
+                {
+                    tm.gameObject.SetActive(false);
+                    continue;
+                }
+
+                if (!isInMusicTab && !isSidebarButton)
+                    tm.gameObject.SetActive(false);
+            }
+        }
+
         private void EnsureMusicTextSizing()
         {
             if (txtSongTitle != null)
@@ -472,6 +553,36 @@ namespace GorillaInfo
             }
 
             return null;
+        }
+
+        private Transform FindAncestorByName(Transform node, string name)
+        {
+            Transform cur = node;
+            while (cur != null)
+            {
+                if (cur.name.Equals(name, StringComparison.OrdinalIgnoreCase))
+                    return cur;
+                cur = cur.parent;
+            }
+            return null;
+        }
+
+        private bool IsBadWindowTitle(string title)
+        {
+            if (string.IsNullOrWhiteSpace(title))
+                return true;
+
+            string lowered = title.Trim().ToLowerInvariant();
+            if (lowered.Length < 5)
+                return true;
+
+            for (int i = 0; i < IgnoredWindowTitleFragments.Length; i++)
+            {
+                if (lowered.Contains(IgnoredWindowTitleFragments[i]))
+                    return true;
+            }
+
+            return false;
         }
 
         private bool TryGetForegroundWindowTitle(out string title)

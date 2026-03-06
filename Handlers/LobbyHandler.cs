@@ -160,11 +160,12 @@ public class LobbyHandler
         if (playerIndex < 0 || playerIndex >= MaxPlayerSlots)
             return;
 
-        var selectedRig = _slotToRig[playerIndex];
+        var selectedRig = ResolveRigForSlot(playerIndex);
         if (selectedRig == null)
             return;
 
-        GorillaInfoMain.Instance.gunLib.lockedTarget = selectedRig;
+        if (!GorillaInfoMain.Instance.gunLib.TrySetLockedTarget(selectedRig, false))
+            return;
 
         var misc = GorillaInfoMain.Instance.misc;
         if (misc == null)
@@ -173,6 +174,31 @@ public class LobbyHandler
         GorillaInfoMain.Instance.updMain?.UpdateMainPage();
 
         misc.EnableMain();
+    }
+
+    private VRRig ResolveRigForSlot(int playerIndex)
+    {
+        VRRig cachedRig = _slotToRig[playerIndex];
+        if (cachedRig != null && cachedRig != GorillaTagger.Instance?.offlineVRRig && cachedRig.Creator?.GetPlayerRef() != null)
+            return cachedRig;
+
+        List<VRRig> liveRigs = new List<VRRig>(MaxPlayerSlots);
+        VRRig[] allRigs = UnityEngine.Object.FindObjectsByType<VRRig>(FindObjectsSortMode.None);
+        for (int i = 0; i < allRigs.Length; i++)
+        {
+            VRRig rig = allRigs[i];
+            if (rig == null || rig == GorillaTagger.Instance?.offlineVRRig)
+                continue;
+
+            if (rig.Creator?.GetPlayerRef() != null)
+                liveRigs.Add(rig);
+        }
+
+        liveRigs.Sort(PlayerSort);
+        if (playerIndex < 0 || playerIndex >= liveRigs.Count)
+            return null;
+
+        return liveRigs[playerIndex];
     }
 
     private static int ComparePlayers(VRRig a, VRRig b)
