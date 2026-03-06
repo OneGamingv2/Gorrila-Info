@@ -4,7 +4,7 @@ using GorillaInfo.LAB;
 
 namespace GorillaInfo
 {
-    [BepInPlugin("com.LIPSS.gorillatag.gorillainfo", "gorillainfo", "1.0.2")]
+    [BepInPlugin(PluginInfo.GUID, PluginInfo.Name, PluginInfo.Version)]
     public class GorillaInfoMain : BaseUnityPlugin
     {
         public static GorillaInfoMain Instance;
