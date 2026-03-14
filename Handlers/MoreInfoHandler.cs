@@ -17,6 +17,7 @@ public class MoreInfoHandler
     private Renderer _object14Renderer;
     private bool _isOpen;
     private Vector3 _scaleVelocity;
+    private Vector3 _panelOpenScale = new Vector3(0.28f, 0.22f, 0.012f);
     private VRRig _targetRig;
     private VRRig _speedRig;
     private Vector3 _lastSpeedPosition;
@@ -56,7 +57,7 @@ public class MoreInfoHandler
         var menuInstance = GorillaInfoMain.Instance?.menuLoader?.menuInstance;
         if (menuInstance == null) return;
 
-        _moreInfoPanel = menuInstance.transform.Find("MoreInfo")?.gameObject;
+        _moreInfoPanel = FindDeepChild(menuInstance.transform, "MoreInfo")?.gameObject;
         if (_moreInfoPanel == null) return;
 
         // Clear any bad rotation baked into the prefab panel
@@ -94,6 +95,9 @@ public class MoreInfoHandler
         LoadMaterials();
 
         _moreInfoPanel.SetActive(false);
+        Vector3 capturedScale = _moreInfoPanel.transform.localScale;
+        if (capturedScale.sqrMagnitude > 0.0001f)
+            _panelOpenScale = capturedScale;
         _moreInfoPanel.transform.localScale = Vector3.zero;
         _scaleVelocity = Vector3.zero;
         _isOpen = false;
@@ -114,7 +118,15 @@ public class MoreInfoHandler
         if (text == null)
             return;
 
-        text.transform.localRotation = Quaternion.identity;
+        // Reset localRotation on the text node AND every ancestor up to the panel.
+        // Prefab may have baked rotations on intermediate containers that cause sideways text.
+        Transform t = text.transform;
+        while (t != null && t.gameObject != _moreInfoPanel)
+        {
+            t.localRotation = Quaternion.identity;
+            t = t.parent;
+        }
+
         text.transform.localScale = Vector3.one;
         text.characterSize = characterSize;
         if (text.font != null && text.font.dynamic)
@@ -195,15 +207,15 @@ public class MoreInfoHandler
         if (_moreInfoPanel == null) return;
         if (!_isOpen && !_moreInfoPanel.activeSelf) return;
 
-        Vector3 target = _isOpen ? Vector3.one : Vector3.zero;
+        Vector3 target = _isOpen ? _panelOpenScale : Vector3.zero;
         Transform t = _moreInfoPanel.transform;
 
         t.localScale = Vector3.SmoothDamp(t.localScale, target, ref _scaleVelocity, ScaleSmoothTime);
 
         if (_isOpen)
         {
-            if ((t.localScale - Vector3.one).sqrMagnitude < OpenSnapThresholdSqr)
-                t.localScale = Vector3.one;
+            if ((t.localScale - _panelOpenScale).sqrMagnitude < OpenSnapThresholdSqr)
+                t.localScale = _panelOpenScale;
         }
         else
         {
@@ -446,5 +458,18 @@ public class MoreInfoHandler
         _lastSpeedPosition = current;
         _lastSpeedTime = now;
         return speed;
+    }
+
+    private static Transform FindDeepChild(Transform parent, string name)
+    {
+        if (parent == null) return null;
+        Transform direct = parent.Find(name);
+        if (direct != null) return direct;
+        for (int i = 0; i < parent.childCount; i++)
+        {
+            Transform found = FindDeepChild(parent.GetChild(i), name);
+            if (found != null) return found;
+        }
+        return null;
     }
 }
