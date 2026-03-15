@@ -29,9 +29,9 @@ public class GunLib
     private bool _lastBPressed;
     private bool _lastRightTriggerPressed;
     private int _currentGunStyleIndex;
-    private const float MaxDistance = 50f;
+    private const float MaxDistance = 200f;
     private const float GunRayWidth = 0.006f;
-    private const float GunSphereScale = 0.15f;
+    private const float GunSphereScale = 0.04f;
     private const float NametagDistance = 18f;
     private const float NametagHeight = 0.95f;
     private const float NametagTextSize = 0.078f;
@@ -43,7 +43,7 @@ public class GunLib
     private const float NametagUpdateInterval = 1f / 60f;
     private const float LockVisualUpdateInterval = 1f / 30f;
     private const float LockPointerWidth = 0.0045f;
-    private const float LockSphereScale = 0.68f;
+    private const float LockSphereScale = 0.22f;
     private int _gunSizePresetIndex = 1;
 
     private static readonly float[] GunSizeMultipliers = new float[]
@@ -129,7 +129,11 @@ public class GunLib
         Vector3 dir = hand.forward;
 
         RaycastHit hit;
-        LayerMask mask = passThroughEnabled ? LayerMask.GetMask("Default") : -1;
+        // passthrough: ray only stops at player colliders, passes through all geometry
+        // normal:      ray stops at everything so you can see where it hits walls
+        LayerMask mask = passThroughEnabled
+            ? LayerMask.GetMask("GorillaPlayer", "GorillaInteractable")
+            : -1;
         bool hitSomething = Physics.Raycast(start, dir, out hit, MaxDistance, mask);
         Vector3 end = hitSomething ? hit.point : start + dir * MaxDistance;
 
@@ -137,7 +141,8 @@ public class GunLib
         {
             Vector3 targetPos = lockedTarget.transform.position + Vector3.up * 0.35f;
             bool inRange = Vector3.Distance(start, targetPos) <= MaxDistance;
-            bool clearSight = inRange && HasLineOfSight(start, targetPos, lockedTarget);
+            // passthrough ignores walls — only drop lock if genuinely out of range
+            bool clearSight = inRange && (passThroughEnabled || HasLineOfSight(start, targetPos, lockedTarget));
 
             if (clearSight)
                 end = targetPos;
@@ -165,7 +170,8 @@ public class GunLib
 
             if (IsRigValid(hitRig))
             {
-                if (TrySetLockedTarget(hitRig, true) && lockedTarget == hitRig)
+                // passthrough: allow locking without needing line-of-sight
+                if (TrySetLockedTarget(hitRig, !passThroughEnabled) && lockedTarget == hitRig)
                 {
                     GorillaInfoMain.Instance.updMain.UpdateMainPage();
                 }
@@ -197,15 +203,17 @@ public class GunLib
 
             Vector3 toRigDir = toRig / dist;
             float forwardDot = Vector3.Dot(normalizedDir, toRigDir);
-            if (forwardDot < 0.45f)
+            if (forwardDot < 0.35f)
                 continue;
 
             float lateralDistance = Vector3.Cross(normalizedDir, toRig).magnitude;
-            float allowedLateral = Mathf.Lerp(0.16f, 1.35f, Mathf.Clamp01(dist / MaxDistance));
+            // allow wider lateral cone at long range so far targets are still locked
+            float allowedLateral = Mathf.Lerp(0.20f, 3.5f, Mathf.Clamp01(dist / MaxDistance));
             if (lateralDistance > allowedLateral)
                 continue;
 
-            if (!HasLineOfSight(start, targetPos, rig))
+            // when passthrough is on, bypass wall-check so far targets are reachable
+            if (!passThroughEnabled && !HasLineOfSight(start, targetPos, rig))
                 continue;
 
             float score =
@@ -308,7 +316,7 @@ public class GunLib
 
     public void OnMenuClosed()
     {
-        autoLockEnabled = false;
+        // keep autoLockEnabled as-is so the user doesn't have to re-enable it on every open
         _lastRightTriggerPressed = false;
         ClearSelection();
         destroy();
@@ -492,7 +500,9 @@ public class GunLib
         string statsText = GetCachedStatsText(rig);
         string modsText = GetCachedModsNametagText(rig);
 
-        bool visible = GetCachedVisibility(rig, tagTransform.position);
+        // always render nametags — see through walls
+        bool visible = rig != null;
+
         if (visual.MainText != null)
             visual.MainText.gameObject.SetActive(visible);
         if (visual.ShadowText != null)
@@ -564,6 +574,7 @@ public class GunLib
         textObj.transform.localRotation = Quaternion.identity;
 
         TextMesh textMesh = textObj.AddComponent<TextMesh>();
+        textMesh.fontSize = 100;          // high DPI rasterisation — sharper at all distances
         textMesh.characterSize = NametagTextSize;
         textMesh.alignment = TextAlignment.Center;
         textMesh.anchor = TextAnchor.MiddleCenter;
@@ -623,8 +634,8 @@ public class GunLib
         {
             case Platform.Steam: return "Steam";
             case Platform.PC: return "PC";
-            case Platform.Standalone: return "Quest";
-            default: return "Unknown";
+            case Platform.Standalone:
+            default: return "Quest";  // can't detect = assume Quest (most common)
         }
     }
 

@@ -24,6 +24,7 @@ namespace GorillaInfo
         public NotificationManager notificationManager;
         public MoreInfoHandler moreInfoHandler;
         public MusicHandler musicHandler;
+        public AntiCheatHandler antiCheatHandler;
 
         public enum MenuState : byte { Closed, Opening, Open, Closing }
         public MenuState menuState = MenuState.Closed;
@@ -70,6 +71,7 @@ namespace GorillaInfo
                 moreInfoHandler?.UpdateAnimation();
                 moreInfoHandler?.UpdatePlayerInfo();
                 gunLib?.UpdateNametags();
+                antiCheatHandler?.Update();
             }
             catch (System.Exception ex)
             {
@@ -79,18 +81,19 @@ namespace GorillaInfo
             if (menuState == MenuState.Closed && !_gunDestroyed && spawned)
             {
                 gunLib.OnMenuClosed();
-                settingsHandler?.SetLockOnStateFromRuntime(false, false);
+                // do NOT reset lock-on here — it should persist between opens
                 _gunDestroyed = true;
             }
 
             if (menuState == MenuState.Open)
                 _gunDestroyed = false;
 
+            buttonClick?.ballvisibility();
+
             if (menuState != MenuState.Open) return;
 
             try
             {
-                buttonClick.ballvisibility();
                 buttonClick.uptadeball();
                 gunLib.rearmgun();
                 gunLib.gunray();
@@ -130,6 +133,7 @@ namespace GorillaInfo
             notificationManager = new NotificationManager();
             moreInfoHandler = new MoreInfoHandler();
             musicHandler = new MusicHandler();
+            antiCheatHandler = new AntiCheatHandler();
         }
 
         private void ApplyCompatibilityPatches()

@@ -52,7 +52,7 @@ public class Button
         {
             Vector3 lossy = sphere.transform.lossyScale;
             float scaleMax = Mathf.Max(lossy.x, Mathf.Max(lossy.y, lossy.z));
-            _interactionRadius = Mathf.Clamp(sphereCollider.radius * scaleMax, 0.0035f, 0.008f);
+            _interactionRadius = Mathf.Clamp(sphereCollider.radius * scaleMax, 0.0035f, 0.016f);
         }
 
         // Release the open-guard latch as soon as the cooldown window expires.
@@ -70,7 +70,7 @@ public class Button
         if (TryPressButton(GetCachedButton("LobbyButton"), inst.misc.EnableLobby, spherePos)) return;
         if (TryPressButton(GetCachedButton("MusicButton"), inst.misc.EnableMusic, spherePos)) return;
 
-        if (inst.menuLoader.settingsPanel != null)
+        if (inst.menuLoader.settingsPanel != null && inst.menuLoader.settingsPanel.activeInHierarchy)
         {
             if (TryPressButton(GetCachedButton("Notifications"), inst.settingsHandler.ToggleNotifications, spherePos)) return;
             if (TryPressButton(GetCachedButton("LockOn"), inst.settingsHandler.ToggleLockOn, spherePos)) return;
@@ -84,7 +84,7 @@ public class Button
             if (TryPressButton(GetCachedButton("ResetSettings"), inst.settingsHandler.ResetDefaults, spherePos)) return;
         }
 
-        if (inst.menuLoader.actionsPanel != null)
+        if (inst.menuLoader.actionsPanel != null && inst.menuLoader.actionsPanel.activeInHierarchy)
         {
             if (TryPressButton(GetCachedButton("Scan Players"), inst.updMain.ScanAllPlayers, spherePos)) return;
             if (TryPressButton(GetCachedButton("LobbyHop"), inst.updMain.LobbyHop, spherePos)) return;
@@ -98,7 +98,7 @@ public class Button
             if (TryPressButton(GetCachedButton("MoreInfoButton"), () => inst.moreInfoHandler?.ToggleMoreInfo(), spherePos)) return;
         }
 
-        if (inst.menuLoader.musicPanel != null && inst.musicHandler != null)
+        if (inst.menuLoader.musicPanel != null && inst.menuLoader.musicPanel.activeInHierarchy && inst.musicHandler != null)
         {
             if (TryPressButton(GetCachedButton("Previous"), inst.musicHandler.PreviousTrack, spherePos)) return;
             if (TryPressButton(GetCachedButton("PauseButton"), inst.musicHandler.PlayPauseMusic, spherePos)) return;
@@ -114,7 +114,7 @@ public class Button
             if (TryPressButton(GetCachedButton("RefreshButton"), inst.musicHandler.RefreshNowPlaying, spherePos)) return;
         }
 
-        if (inst.menuLoader.lobbyPanel != null)
+        if (inst.menuLoader.lobbyPanel != null && inst.menuLoader.lobbyPanel.activeInHierarchy)
         {
             for (int i = 0; i < 10; i++)
             {
@@ -352,12 +352,14 @@ public class Button
 
         if (touching && !wasTouching && !_touchLatchActive && Time.time >= _nextAllowedClickTime)
         {
-            AudioHelper.PlaySound("CreamyClick.wav");
-            onPress?.Invoke();
+            // commit latch BEFORE invoking so an exception in onPress can't cause rapid re-fire
             _nextAllowedClickTime = Time.time + ClickCooldown;
             _touchLatchActive = true;
             _latchedCollider = col;
             _buttonTouchStates[target] = true;
+            AudioHelper.PlaySound("CreamyClick.wav");
+            try { onPress?.Invoke(); }
+            catch (System.Exception ex) { UnityEngine.Debug.LogException(ex); }
             return true;
         }
 

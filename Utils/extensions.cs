@@ -149,6 +149,16 @@ namespace Checker
             { "ui", "ZelixModChecker (M)" },
             { "", "Thareons UI" },
             { "FemBoyChecker", "Sentinel Menu" },
+
+            // II-template menus
+            { "IIMenu", "II-TEMPLATE" },
+            { "IIWTF", "II-TEMPLATE" },
+            { "IIVersion", "II-TEMPLATE" },
+            { "ii_version", "II-TEMPLATE" },
+            { "iiwtf_ver", "II-TEMPLATE" },
+            { "ii_user", "II-TEMPLATE" },
+            { "IIType", "II-TEMPLATE" },
+            { "iimod", "II-TEMPLATE" },
         };
 
 
@@ -161,6 +171,16 @@ namespace Checker
         {
             if (rig == null || _rawCosmeticStringField == null)
                 return Platform.Unknown;
+
+            // Definitive check: Photon userId for Steam users always has 'steam_' prefix
+            if (rig.Creator != null)
+            {
+                var playerRef2 = rig.Creator.GetPlayerRef();
+                string userId = playerRef2?.UserId;
+                if (!string.IsNullOrEmpty(userId)
+                    && userId.IndexOf("steam_", StringComparison.OrdinalIgnoreCase) >= 0)
+                    return Platform.Steam;
+            }
 
             string raw = _rawCosmeticStringField.GetValue(rig) as string;
             if (raw == null)
