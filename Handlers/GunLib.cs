@@ -39,8 +39,7 @@ public class GunLib
     private const float RigCacheRefreshInterval = 0.05f;
     private const float ModsRefreshInterval = 1.2f;
     private const float StatsRefreshInterval = 0.35f;
-    private const float VisibilityRefreshInterval = 1f / 14f;
-    private const float NametagUpdateInterval = 1f / 60f;
+    private const float NametagUpdateInterval = 1f / 30f;
     private const float LockVisualUpdateInterval = 1f / 30f;
     private const float LockPointerWidth = 0.0045f;
     private const float LockSphereScale = 0.22f;
@@ -61,8 +60,6 @@ public class GunLib
     private readonly HashSet<VRRig> _activeRigSet = new HashSet<VRRig>();
     private readonly Dictionary<VRRig, string> _tagStatsCache = new Dictionary<VRRig, string>(24);
     private readonly Dictionary<VRRig, float> _tagStatsTimestamp = new Dictionary<VRRig, float>(24);
-    private readonly Dictionary<VRRig, bool> _tagVisibilityCache = new Dictionary<VRRig, bool>(24);
-    private readonly Dictionary<VRRig, float> _tagVisibilityTimestamp = new Dictionary<VRRig, float>(24);
     private readonly Dictionary<VRRig, string> _tagRenderedTextCache = new Dictionary<VRRig, string>(24);
     private readonly Dictionary<VRRig, float> _targetSphereScaleCache = new Dictionary<VRRig, float>(24);
     private float _nextRigCacheRefreshTime;
@@ -129,8 +126,6 @@ public class GunLib
         Vector3 dir = hand.forward;
 
         RaycastHit hit;
-        // passthrough: ray only stops at player colliders, passes through all geometry
-        // normal:      ray stops at everything so you can see where it hits walls
         LayerMask mask = passThroughEnabled
             ? LayerMask.GetMask("GorillaPlayer", "GorillaInteractable")
             : -1;
@@ -141,7 +136,6 @@ public class GunLib
         {
             Vector3 targetPos = lockedTarget.transform.position + Vector3.up * 0.35f;
             bool inRange = Vector3.Distance(start, targetPos) <= MaxDistance;
-            // passthrough ignores walls — only drop lock if genuinely out of range
             bool clearSight = inRange && (passThroughEnabled || HasLineOfSight(start, targetPos, lockedTarget));
 
             if (clearSight)
@@ -170,7 +164,6 @@ public class GunLib
 
             if (IsRigValid(hitRig))
             {
-                // passthrough: allow locking without needing line-of-sight
                 if (TrySetLockedTarget(hitRig, !passThroughEnabled) && lockedTarget == hitRig)
                 {
                     GorillaInfoMain.Instance.updMain.UpdateMainPage();
@@ -207,12 +200,10 @@ public class GunLib
                 continue;
 
             float lateralDistance = Vector3.Cross(normalizedDir, toRig).magnitude;
-            // allow wider lateral cone at long range so far targets are still locked
             float allowedLateral = Mathf.Lerp(0.20f, 3.5f, Mathf.Clamp01(dist / MaxDistance));
             if (lateralDistance > allowedLateral)
                 continue;
 
-            // when passthrough is on, bypass wall-check so far targets are reachable
             if (!passThroughEnabled && !HasLineOfSight(start, targetPos, rig))
                 continue;
 
@@ -316,7 +307,6 @@ public class GunLib
 
     public void OnMenuClosed()
     {
-        // keep autoLockEnabled as-is so the user doesn't have to re-enable it on every open
         _lastRightTriggerPressed = false;
         ClearSelection();
         destroy();
@@ -470,8 +460,6 @@ public class GunLib
                 _modsCacheTimestamp.Remove(rig);
                 _tagStatsCache.Remove(rig);
                 _tagStatsTimestamp.Remove(rig);
-                _tagVisibilityCache.Remove(rig);
-                _tagVisibilityTimestamp.Remove(rig);
                 _tagRenderedTextCache.Remove(rig);
             }
         }
@@ -500,7 +488,6 @@ public class GunLib
         string statsText = GetCachedStatsText(rig);
         string modsText = GetCachedModsNametagText(rig);
 
-        // always render nametags — see through walls
         bool visible = rig != null;
 
         if (visual.MainText != null)
@@ -520,14 +507,13 @@ public class GunLib
         if (!_tagRenderedTextCache.TryGetValue(rig, out string rendered) || !string.Equals(rendered, tagText))
         {
             visual.MainText.text = tagText;
-            visual.ShadowText.text = tagText;
+            if (visual.ShadowText != null)
+                visual.ShadowText.text = tagText;
             _tagRenderedTextCache[rig] = tagText;
         }
 
-        float lineCount = string.IsNullOrEmpty(modsText) ? 2f : 3f;
-        Vector3 bgScale = new Vector3(0.56f, 0.12f + (lineCount - 2f) * 0.06f, 1f);
         if (visual.Backdrop != null)
-            visual.Backdrop.transform.localScale = bgScale;
+            visual.Backdrop.enabled = false;
     }
 
     private NametagVisual CreateNametagVisual()
@@ -535,34 +521,14 @@ public class GunLib
         GameObject rootObj = new GameObject("GI_Nametag");
         Transform root = rootObj.transform;
 
-        GameObject bgObj = GameObject.CreatePrimitive(PrimitiveType.Quad);
-        bgObj.name = "BG";
-        bgObj.transform.SetParent(root, false);
-        bgObj.transform.localPosition = Vector3.zero;
-        bgObj.transform.localRotation = Quaternion.identity;
-        bgObj.transform.localScale = new Vector3(0.56f, 0.12f, 1f);
-
-        Collider bgCollider = bgObj.GetComponent<Collider>();
-        if (bgCollider != null)
-            Object.Destroy(bgCollider);
-
-        Renderer bgRenderer = bgObj.GetComponent<Renderer>();
-        if (bgRenderer != null)
-        {
-            Material bgMaterial = new Material(Shader.Find("Sprites/Default"));
-            bgMaterial.color = NametagBackdropColor;
-            bgRenderer.material = bgMaterial;
-        }
-
-        TextMesh shadow = CreateTagText(root, "Shadow", NametagShadowColor, new Vector3(0.0022f, -0.0018f, -0.001f));
-        TextMesh main = CreateTagText(root, "Main", NametagMainColor, new Vector3(0f, 0f, -0.002f));
+        TextMesh main = CreateTagText(root, "Main", NametagMainColor, Vector3.zero);
 
         return new NametagVisual
         {
             Root = root,
             MainText = main,
-            ShadowText = shadow,
-            Backdrop = bgRenderer
+            ShadowText = null,
+            Backdrop = null
         };
     }
 
@@ -574,14 +540,35 @@ public class GunLib
         textObj.transform.localRotation = Quaternion.identity;
 
         TextMesh textMesh = textObj.AddComponent<TextMesh>();
-        textMesh.fontSize = 100;          // high DPI rasterisation — sharper at all distances
+        textMesh.fontSize = 100;
         textMesh.characterSize = NametagTextSize;
         textMesh.alignment = TextAlignment.Center;
         textMesh.anchor = TextAnchor.MiddleCenter;
         textMesh.color = color;
         textMesh.fontStyle = FontStyle.Bold;
         textMesh.lineSpacing = 0.88f;
+
+        Renderer renderer = textObj.GetComponent<Renderer>();
+        if (renderer != null)
+            ConfigureNametagRenderer(renderer);
+
         return textMesh;
+    }
+
+    private void ConfigureNametagRenderer(Renderer renderer)
+    {
+        Shader shader = Shader.Find("GUI/Text Shader") ?? Shader.Find("Sprites/Default");
+        Material mat = new Material(shader);
+        mat.renderQueue = 5000;
+
+        if (mat.HasProperty("_ZWrite"))
+            mat.SetInt("_ZWrite", 0);
+        if (mat.HasProperty("_ZTest"))
+            mat.SetInt("_ZTest", (int)UnityEngine.Rendering.CompareFunction.Always);
+
+        renderer.material = mat;
+        renderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+        renderer.receiveShadows = false;
     }
 
     private string GetCachedStatsText(VRRig rig)
@@ -605,29 +592,6 @@ public class GunLib
         return value;
     }
 
-    private bool IsTagVisibleToCamera(VRRig rig, Vector3 tagPosition)
-    {
-        Camera camera = GetMainCamera();
-        if (camera == null)
-            return true;
-
-        if (!Physics.Linecast(camera.transform.position, tagPosition, out RaycastHit hit, -1, QueryTriggerInteraction.Ignore))
-            return true;
-
-        Transform hitTransform = hit.collider != null ? hit.collider.transform : null;
-        if (hitTransform == null)
-            return true;
-
-        if (rig != null && hitTransform.IsChildOf(rig.transform))
-            return true;
-
-        Transform localRig = GorillaTagger.Instance?.offlineVRRig?.transform;
-        if (localRig != null && hitTransform.IsChildOf(localRig))
-            return true;
-
-        return false;
-    }
-
     private string ParsePlatformForNametag(Platform platform)
     {
         switch (platform)
@@ -635,26 +599,8 @@ public class GunLib
             case Platform.Steam: return "Steam";
             case Platform.PC: return "PC";
             case Platform.Standalone:
-            default: return "Quest";  // can't detect = assume Quest (most common)
+            default: return "Quest";
         }
-    }
-
-    private bool GetCachedVisibility(VRRig rig, Vector3 tagPosition)
-    {
-        if (rig == null)
-            return false;
-
-        if (_tagVisibilityCache.TryGetValue(rig, out bool cachedVisible) &&
-            _tagVisibilityTimestamp.TryGetValue(rig, out float ts) &&
-            Time.time - ts < VisibilityRefreshInterval)
-        {
-            return cachedVisible;
-        }
-
-        bool value = IsTagVisibleToCamera(rig, tagPosition);
-        _tagVisibilityCache[rig] = value;
-        _tagVisibilityTimestamp[rig] = Time.time;
-        return value;
     }
 
     private void RefreshRigCache(bool force = false)
@@ -866,8 +812,6 @@ public class GunLib
         _modsCacheTimestamp.Clear();
         _tagStatsCache.Clear();
         _tagStatsTimestamp.Clear();
-        _tagVisibilityCache.Clear();
-        _tagVisibilityTimestamp.Clear();
         _tagRenderedTextCache.Clear();
         _targetSphereScaleCache.Clear();
         _activeRigSet.Clear();

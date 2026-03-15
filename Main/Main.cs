@@ -3,6 +3,7 @@ using UnityEngine;
 using GorillaInfo.LAB;
 using HarmonyLib;
 using System;
+using System.Collections;
 using System.Reflection;
 
 namespace GorillaInfo
@@ -37,6 +38,10 @@ namespace GorillaInfo
         private const float LobbyInterval = 0.45f;
         private bool _gunDestroyed;
         private Harmony _harmony;
+        private bool _welcomeAnimationStarted;
+        private bool _welcomeAnimationCompleted;
+        private float _nextWelcomeReadyCheckTime;
+        private const float WelcomeReadyPollInterval = 0.45f;
 
         private void Awake()
         {
@@ -68,6 +73,8 @@ namespace GorillaInfo
                 if (menuState == MenuState.Opening || menuState == MenuState.Closing)
                     menuAnimations.animshandler();
 
+                TryStartWelcomeAnimation();
+
                 moreInfoHandler?.UpdateAnimation();
                 moreInfoHandler?.UpdatePlayerInfo();
                 gunLib?.UpdateNametags();
@@ -81,7 +88,6 @@ namespace GorillaInfo
             if (menuState == MenuState.Closed && !_gunDestroyed && spawned)
             {
                 gunLib.OnMenuClosed();
-                // do NOT reset lock-on here — it should persist between opens
                 _gunDestroyed = true;
             }
 
@@ -165,12 +171,58 @@ namespace GorillaInfo
         private void Start()
         {
             GorillaInfo.LAB.Assets.LoadAssetBundle();
-            notificationManager?.Notify(" GorillaInfo Loaded ");
             misc.InitactionsTexts();
             misc.InitLobbyTexts();
             lobbyHandler.InitializeLobbySlots();
             settingsHandler.InitializeSettings();
        
+        }
+
+        private void TryStartWelcomeAnimation()
+        {
+            if (_welcomeAnimationCompleted || _welcomeAnimationStarted)
+                return;
+
+            if (Time.time < _nextWelcomeReadyCheckTime)
+                return;
+
+            _nextWelcomeReadyCheckTime = Time.time + WelcomeReadyPollInterval;
+
+            bool gameReady = GorillaTagger.Instance != null
+                             && Camera.main != null
+                             && spawned
+                             && menuLoader != null
+                             && menuLoader.menuInstance != null;
+
+            bool networkReady = Photon.Pun.PhotonNetwork.LocalPlayer != null;
+
+            if (!gameReady || !networkReady)
+                return;
+
+            _welcomeAnimationStarted = true;
+            StartCoroutine(PlayWelcomeAnimationRoutine());
+        }
+
+        private IEnumerator PlayWelcomeAnimationRoutine()
+        {
+            string nick = Photon.Pun.PhotonNetwork.LocalPlayer?.NickName;
+            if (string.IsNullOrWhiteSpace(nick))
+                nick = "Player";
+
+            notificationManager?.Notify("<color=#66D9FF>[GorillaInfo]</color> Initializing...");
+            yield return new WaitForSeconds(0.35f);
+
+            notificationManager?.Notify("<color=#66D9FF>[GorillaInfo]</color> Loading handlers...");
+            yield return new WaitForSeconds(0.35f);
+
+            notificationManager?.Notify("<color=#00FFAA>[GorillaInfo]</color> Game registered");
+            yield return new WaitForSeconds(0.40f);
+
+            notificationManager?.Notify($"<color=#FFD166>Welcome, {nick}</color>");
+            yield return new WaitForSeconds(0.35f);
+
+            notificationManager?.Notify("<color=#C8F560>Press Left-Y to open menu</color>");
+            _welcomeAnimationCompleted = true;
         }
 
         private void HandleInputs()
